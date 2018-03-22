@@ -82,6 +82,10 @@ export interface RNCameraProps {
     
     /** iOS Only */
     captureAudio?: boolean;
+    barCodeScannerWidth?: number;
+    barCodeScannerHeight?: number;
+    barCodeScannerTop?: number;
+    barCodeScannerLeft?: number;
 
 }
 

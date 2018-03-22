@@ -66,9 +66,13 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
 
 - (void)onReady:(NSDictionary *)event
 {
+    [self updateMetadataOutputRectOfInterest];
     if (_onCameraReady) {
         _onCameraReady(nil);
     }
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(200.0 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
+        [self updateMetadataOutputRectOfInterest];
+    });
 }
 
 - (void)onMountingError:(NSDictionary *)event
@@ -621,6 +625,24 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
 {
     UIInterfaceOrientation orientation = [[UIApplication sharedApplication] statusBarOrientation];
     [self changePreviewOrientation:orientation];
+}
+
+- (void)updateMetadataOutputRectOfInterest
+{
+    if (self.metadataOutput) {
+        CGRect rect = self.previewLayer.frame;
+        if(self.barCodeScannerWidth>0 || self.barCodeScannerHeight >0){
+            if(self.barCodeScannerWidth <= 0){
+                self.barCodeScannerWidth = rect.size.width;
+            }
+            if(self.barCodeScannerHeight <= 0){
+                self.barCodeScannerHeight = rect.size.height;
+            }
+            self.barCodeScannerLeft = (rect.size.width - self.barCodeScannerWidth)/2;
+            self.barCodeScannerTop = (rect.size.height - self.barCodeScannerHeight)/2;
+            self.metadataOutput.rectOfInterest = [self.previewLayer metadataOutputRectOfInterestForRect:CGRectMake(self.barCodeScannerLeft, self.barCodeScannerTop, self.barCodeScannerWidth, self.barCodeScannerHeight)];;
+        }
+    }
 }
 
 - (void)changePreviewOrientation:(UIInterfaceOrientation)orientation

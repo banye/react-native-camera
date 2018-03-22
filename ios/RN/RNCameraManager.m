@@ -16,6 +16,10 @@ RCT_EXPORT_VIEW_PROPERTY(onCameraReady, RCTDirectEventBlock);
 RCT_EXPORT_VIEW_PROPERTY(onMountError, RCTDirectEventBlock);
 RCT_EXPORT_VIEW_PROPERTY(onBarCodeRead, RCTDirectEventBlock);
 RCT_EXPORT_VIEW_PROPERTY(onFacesDetected, RCTDirectEventBlock);
+RCT_EXPORT_VIEW_PROPERTY(barCodeScannerLeft, NSInteger);
+RCT_EXPORT_VIEW_PROPERTY(barCodeScannerTop, NSInteger);
+RCT_EXPORT_VIEW_PROPERTY(barCodeScannerWidth, NSInteger);
+RCT_EXPORT_VIEW_PROPERTY(barCodeScannerHeight, NSInteger);
 
 + (BOOL)requiresMainQueueSetup
 {

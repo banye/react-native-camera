@@ -138,4 +138,23 @@ public class CameraViewManager extends ViewGroupManager<RNCameraView> {
   public void setFaceDetectionClassifications(RNCameraView view, int classifications) {
     view.setFaceDetectionClassifications(classifications);
   }
+  @ReactProp(name = "barCodeScannerLeft")
+  public void setBarCodeScannerLeft(RNCameraView view, Integer left) {
+    if (left != null)
+      view.setBarCodeScannerLeft(left);
+  }
+  @ReactProp(name = "barCodeScannerTop")
+  public void setBarCodeScannerTop(RNCameraView view, Integer top) {
+    if (top != null)
+      view.setBarCodeScannerTop(top);
+  }
+  @ReactProp(name = "barCodeScannerWidth")
+  public void setBarCodeScannerWidth(RNCameraView view, int width) {
+    view.setBarCodeScannerWidth(width);
+  }
+
+  @ReactProp(name = "barCodeScannerHeight")
+  public void setBarCodeScannerHeight(RNCameraView view, int height) {
+    view.setBarCodeScannerHeight(height);
+  }
 }

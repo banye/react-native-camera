@@ -31,6 +31,11 @@
 @property (assign, nonatomic) NSInteger whiteBalance;
 @property (nonatomic, assign, getter=isReadingBarCodes) BOOL barCodeReading;
 @property(assign, nonatomic) AVVideoCodecType videoCodecType;
+@property (nonatomic, assign) NSInteger barCodeScannerLeft;
+@property (nonatomic, assign) NSInteger barCodeScannerTop;
+@property (nonatomic, assign) NSInteger barCodeScannerWidth;
+@property (nonatomic, assign) NSInteger barCodeScannerHeight;
+
 
 - (id)initWithBridge:(RCTBridge *)bridge;
 - (void)updateType;

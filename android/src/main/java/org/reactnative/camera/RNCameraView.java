@@ -65,6 +65,11 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
   private int mFaceDetectionLandmarks = RNFaceDetector.NO_LANDMARKS;
   private int mFaceDetectionClassifications = RNFaceDetector.NO_CLASSIFICATIONS;
 
+  private int _barCodeScannerLeft = -1;
+  private int _barCodeScannerTop = -1;
+  private int _barCodeScannerWidth = 0;
+  private int _barCodeScannerHeight = 0;
+
   public RNCameraView(ThemedReactContext themedReactContext) {
     super(themedReactContext, true);
     initBarcodeReader();
@@ -325,5 +330,37 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
     } else {
       return true;
     }
+  }
+
+  public int getBarCodeScannerLeft() {
+    return _barCodeScannerLeft;
+  }
+
+  public void setBarCodeScannerLeft(int _barCodeScannerLeft) {
+    this._barCodeScannerLeft = _barCodeScannerLeft;
+  }
+
+  public int getBarCodeScannerTop() {
+    return _barCodeScannerTop;
+  }
+
+  public void setBarCodeScannerTop(int _barCodeScannerTop) {
+    this._barCodeScannerTop = _barCodeScannerTop;
+  }
+
+  public int getBarCodeScannerWidth() {
+    return _barCodeScannerWidth;
+  }
+
+  public void setBarCodeScannerWidth(int _barCodeScannerWidth) {
+    this._barCodeScannerWidth = _barCodeScannerWidth;
+  }
+
+  public int getBarCodeScannerHeight() {
+    return _barCodeScannerHeight;
+  }
+
+  public void setBarCodeScannerHeight(int _barCodeScannerHeight) {
+    this._barCodeScannerHeight = _barCodeScannerHeight;
   }
 }

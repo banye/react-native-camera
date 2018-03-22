@@ -60,6 +60,10 @@ type PropsType = ViewPropTypes & {
   onFacesDetected?: ({ faces: Array<TrackedFaceFeature> }) => void,
   captureAudio?: boolean,
   useCamera2Api?: boolean,
+  barCodeScannerWidth?: number,
+  barCodeScannerHeight?: number,
+  barCodeScannerTop?: number,
+  barCodeScannerLeft?: number,
 };
 
 const CameraManager: Object = NativeModules.RNCameraManager ||
@@ -136,6 +140,10 @@ export default class Camera extends React.Component<PropsType> {
     pendingAuthorizationView: PropTypes.element,
     captureAudio: PropTypes.bool,
     useCamera2Api: PropTypes.bool,
+    barCodeScannerWidth: PropTypes.number,
+    barCodeScannerHeight: PropTypes.number,
+    barCodeScannerTop: PropTypes.number,
+    barCodeScannerLeft: PropTypes.number,
   };
 
   static defaultProps: Object = {
@@ -183,6 +191,10 @@ export default class Camera extends React.Component<PropsType> {
     ),
     captureAudio: false,
     useCamera2Api: false,
+    barCodeScannerWidth: 0,
+    barCodeScannerHeight: 0,
+    barCodeScannerTop: -1,
+    barCodeScannerLeft: -1,
   };
 
   _cameraRef: ?Object;

@@ -4,6 +4,7 @@ import android.Manifest;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.media.CamcorderProfile;
+import android.media.MediaActionSound;
 import android.os.Build;
 import android.support.v4.content.ContextCompat;
 import android.util.SparseArray;
@@ -17,6 +18,9 @@ import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.uimanager.ThemedReactContext;
 import com.google.android.cameraview.CameraView;
 import com.google.android.gms.vision.face.Face;
+import com.google.android.gms.vision.text.Text;
+import com.google.android.gms.vision.text.TextBlock;
+import com.google.android.gms.vision.text.TextRecognizer;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.DecodeHintType;
 import com.google.zxing.MultiFormatReader;
@@ -27,6 +31,8 @@ import org.reactnative.camera.tasks.BarCodeScannerAsyncTaskDelegate;
 import org.reactnative.camera.tasks.FaceDetectorAsyncTask;
 import org.reactnative.camera.tasks.FaceDetectorAsyncTaskDelegate;
 import org.reactnative.camera.tasks.ResolveTakenPictureAsyncTask;
+import org.reactnative.camera.tasks.TextRecognizerAsyncTask;
+import org.reactnative.camera.tasks.TextRecognizerAsyncTaskDelegate;
 import org.reactnative.camera.utils.ImageDimensions;
 import org.reactnative.camera.utils.RNFileUtils;
 import org.reactnative.facedetector.RNFaceDetector;
@@ -41,13 +47,15 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-public class RNCameraView extends CameraView implements LifecycleEventListener, BarCodeScannerAsyncTaskDelegate, FaceDetectorAsyncTaskDelegate {
+public class RNCameraView extends CameraView implements LifecycleEventListener, BarCodeScannerAsyncTaskDelegate, FaceDetectorAsyncTaskDelegate,
+    TextRecognizerAsyncTaskDelegate {
   private ThemedReactContext mThemedReactContext;
   private Queue<Promise> mPictureTakenPromises = new ConcurrentLinkedQueue<>();
   private Map<Promise, ReadableMap> mPictureTakenOptions = new ConcurrentHashMap<>();
   private Map<Promise, File> mPictureTakenDirectories = new ConcurrentHashMap<>();
   private Promise mVideoRecordedPromise;
   private List<String> mBarCodeTypes = null;
+  private Boolean mPlaySoundOnCapture = false;
 
   private boolean mIsPaused = false;
   private boolean mIsNew = true;
@@ -55,12 +63,15 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
   // Concurrency lock for scanners to avoid flooding the runtime
   public volatile boolean barCodeScannerTaskLock = false;
   public volatile boolean faceDetectorTaskLock = false;
+  public volatile boolean textRecognizerTaskLock = false;
 
   // Scanning-related properties
   private final MultiFormatReader mMultiFormatReader = new MultiFormatReader();
   private final RNFaceDetector mFaceDetector;
+  private final TextRecognizer mTextRecognizer;
   private boolean mShouldDetectFaces = false;
   private boolean mShouldScanBarCodes = false;
+  private boolean mShouldRecognizeText = false;
   private int mFaceDetectorMode = RNFaceDetector.FAST_MODE;
   private int mFaceDetectionLandmarks = RNFaceDetector.NO_LANDMARKS;
   private int mFaceDetectionClassifications = RNFaceDetector.NO_CLASSIFICATIONS;
@@ -76,6 +87,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
     mThemedReactContext = themedReactContext;
     mFaceDetector = new RNFaceDetector(themedReactContext);
     setupFaceDetector();
+    mTextRecognizer = new TextRecognizer.Builder(themedReactContext).build();
     themedReactContext.addLifecycleEventListener(this);
 
     addCallback(new Callback() {
@@ -111,20 +123,43 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
         }
       }
 
+      private byte[] rotateImage(byte[]imageData,int height,int width){
+        byte[] rotated = new byte[imageData.length];
+        for (int y = 0; y < width; y++) {
+          for (int x = 0; x < height; x++) {
+            rotated[x * width + width - y - 1] = imageData[x + y * height];
+          }
+        }
+        return rotated;
+      }
+
       @Override
       public void onFramePreview(CameraView cameraView, byte[] data, int width, int height, int rotation) {
         int correctRotation = RNCameraViewHelper.getCorrectCameraRotation(rotation, getFacing());
-
+        int correctWidth=width;
+        int correctHeight=height;
+        byte[] correctData=data;
+        if(correctRotation==90){
+          correctWidth=height;
+          correctHeight=width;
+          correctData=rotateImage(data,correctHeight,correctWidth);
+        }
         if (mShouldScanBarCodes && !barCodeScannerTaskLock && cameraView instanceof BarCodeScannerAsyncTaskDelegate) {
           barCodeScannerTaskLock = true;
           BarCodeScannerAsyncTaskDelegate delegate = (BarCodeScannerAsyncTaskDelegate) cameraView;
-          new BarCodeScannerAsyncTask(delegate, mMultiFormatReader, data, width, height).execute();
+          new BarCodeScannerAsyncTask(delegate, mMultiFormatReader, correctData, correctWidth, correctHeight).execute();
         }
 
         if (mShouldDetectFaces && !faceDetectorTaskLock && cameraView instanceof FaceDetectorAsyncTaskDelegate) {
           faceDetectorTaskLock = true;
           FaceDetectorAsyncTaskDelegate delegate = (FaceDetectorAsyncTaskDelegate) cameraView;
-          new FaceDetectorAsyncTask(delegate, mFaceDetector, data, width, height, correctRotation).execute();
+          new FaceDetectorAsyncTask(delegate, mFaceDetector, correctData, correctWidth, correctHeight, correctRotation).execute();
+        }
+
+        if (mShouldRecognizeText && !textRecognizerTaskLock && cameraView instanceof TextRecognizerAsyncTaskDelegate) {
+          textRecognizerTaskLock = true;
+          TextRecognizerAsyncTaskDelegate delegate = (TextRecognizerAsyncTaskDelegate) cameraView;
+          new TextRecognizerAsyncTask(delegate, mTextRecognizer, correctData, correctWidth, correctHeight, correctRotation).execute();
         }
       }
     });
@@ -136,10 +171,22 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
     if (null == preview) {
       return;
     }
+    float width = right - left;
+    float height = bottom - top;
+    float ratio = getAspectRatio().toFloat();
+    int correctHeight;
+    int correctWidth;
     this.setBackgroundColor(Color.BLACK);
-    int width = right - left;
-    int height = bottom - top;
-    preview.layout(0, 0, width, height);
+    if (height / width > ratio) {
+      correctHeight = (int) (width * ratio);
+      correctWidth = (int) width;
+    } else {
+      correctHeight = (int) height;
+      correctWidth = (int)(height*ratio);
+    }
+    int paddingX = (int) ((width - correctWidth) / 2);
+    int paddingY = (int) ((height - correctHeight) / 2);
+    preview.layout(paddingX, paddingY, correctWidth+paddingX, correctHeight+paddingY);
   }
 
   @Override
@@ -150,7 +197,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
   @Override
   public void onViewAdded(View child) {
     if (this.getView() == child || this.getView() == null) return;
-    // remove and readd view to make sure it is in the back.
+    // remove and read view to make sure it is in the back.
     // @TODO figure out why there was a z order issue in the first place and fix accordingly.
     this.removeView(this.getView());
     this.addView(this.getView(), 0);
@@ -161,10 +208,18 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
     initBarcodeReader();
   }
 
+  public void setPlaySoundOnCapture(Boolean playSoundOnCapture) {
+    mPlaySoundOnCapture = playSoundOnCapture;
+  }
+
   public void takePicture(ReadableMap options, final Promise promise, File cacheDirectory) {
     mPictureTakenPromises.add(promise);
     mPictureTakenOptions.put(promise, options);
     mPictureTakenDirectories.put(promise, cacheDirectory);
+    if (mPlaySoundOnCapture) {
+      MediaActionSound sound = new MediaActionSound();
+      sound.play(MediaActionSound.SHUTTER_CLICK);
+    }
     super.takePicture();
   }
 
@@ -215,7 +270,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
 
   public void setShouldScanBarCodes(boolean shouldScanBarCodes) {
     this.mShouldScanBarCodes = shouldScanBarCodes;
-    setScanning(mShouldDetectFaces || mShouldScanBarCodes);
+    setScanning(mShouldDetectFaces || mShouldScanBarCodes || mShouldRecognizeText);
   }
 
   public void onBarCodeRead(Result barCode) {
@@ -265,7 +320,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
 
   public void setShouldDetectFaces(boolean shouldDetectFaces) {
     this.mShouldDetectFaces = shouldDetectFaces;
-    setScanning(mShouldDetectFaces || mShouldScanBarCodes);
+    setScanning(mShouldDetectFaces || mShouldScanBarCodes || mShouldRecognizeText);
   }
 
   public void onFacesDetected(SparseArray<Face> facesReported, int sourceWidth, int sourceHeight, int sourceRotation) {
@@ -290,6 +345,28 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
   @Override
   public void onFaceDetectingTaskCompleted() {
     faceDetectorTaskLock = false;
+  }
+
+  public void setShouldRecognizeText(boolean shouldRecognizeText) {
+    this.mShouldRecognizeText = shouldRecognizeText;
+    setScanning(mShouldDetectFaces || mShouldScanBarCodes || mShouldRecognizeText);
+  }
+
+  @Override
+  public void onTextRecognized(SparseArray<TextBlock> textBlocks, int sourceWidth, int sourceHeight, int sourceRotation) {
+    if (!mShouldRecognizeText) {
+      return;
+    }
+
+    SparseArray<TextBlock> textBlocksDetected = textBlocks == null ? new SparseArray<TextBlock>() : textBlocks;
+    ImageDimensions dimensions = new ImageDimensions(sourceWidth, sourceHeight, sourceRotation, getFacing());
+
+    RNCameraViewHelper.emitTextRecognizedEvent(this, textBlocksDetected, dimensions);
+  }
+
+  @Override
+  public void onTextRecognizerTaskCompleted() {
+    textRecognizerTaskLock = false;
   }
 
   @Override

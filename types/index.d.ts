@@ -45,6 +45,7 @@ export interface RNCameraProps {
     flashMode?: keyof FlashMode;
     notAuthorizedView?: JSX.Element;
     pendingAuthorizationView?: JSX.Element;
+    useCamera2Api?: boolean;
 
     onCameraReady?(): void;
     onMountError?(): void;
@@ -57,9 +58,19 @@ export interface RNCameraProps {
     // -- BARCODE PROPS
     barCodeTypes?: Array<keyof BarCodeType>;
     onBarCodeRead?(event: {
-        data: string
-        type: keyof BarCodeType
+        data: string,
+        type: keyof BarCodeType,
+        /**
+         * @description For Android use `[Point<string>, Point<string>]`
+         * @description For iOS use `{ origin: Point<string>, size: Size<string> }`
+         */
+        bounds: [Point<string>, Point<string>] | { origin: Point<string>, size: Size<string> }
     }): void;
+
+    barCodeScannerWidth?: number;
+    barCodeScannerHeight?: number;
+    barCodeScannerTop?: number;
+    barCodeScannerLeft?: number;
 
     // -- FACE DETECTION PROPS
 
@@ -70,37 +81,37 @@ export interface RNCameraProps {
     faceDetectionClassifications?: keyof FaceDetectionClassifications;
 
     // -- ANDROID ONLY PROPS
-
+    /** Android only */
+    onTextRecognized?(response: { textBlocks: TrackedTextFeature[] }): void;
     /** Android only */
     ratio?: string;
     /** Android only */
     permissionDialogTitle?: string;
     /** Android only */
     permissionDialogMessage?: string;
+    /** Android only */
+    playSoundOnCapture?: boolean;
 
     // -- IOS ONLY PROPS
     
     /** iOS Only */
     captureAudio?: boolean;
-    barCodeScannerWidth?: number;
-    barCodeScannerHeight?: number;
-    barCodeScannerTop?: number;
-    barCodeScannerLeft?: number;
-
 }
 
-interface Point {
-    x: number,
-    y: number
+interface Point<T = number> {
+    x: T,
+    y: T
+}
+
+interface Size<T = number> {
+    width: T;
+    height: T;
 }
 
 interface Face {
     faceID?: number,
     bounds: {
-        size: {
-            width: number;
-            height: number;
-        };
+        size: Size;
         origin: Point;
     };
     smilingProbability?: number;
@@ -121,6 +132,16 @@ interface Face {
     rollAngle?: number;
 }
 
+interface TrackedTextFeature {
+    type: 'block' | 'line' | 'element';
+    bounds: {
+        size: Size;
+        origin: Point;
+    },
+    value: string;
+    components: TrackedTextFeature[];
+}
+
 interface TakePictureOptions {
     quality?: number;
     base64?: boolean;
@@ -129,7 +150,10 @@ interface TakePictureOptions {
     mirrorImage?: boolean;
 
     /** Android only */
+    skipProcessing?: boolean;
+    /** Android only */
     fixOrientation?: boolean;
+
     /** iOS only */
     forceUpOrientation?: boolean;
 }

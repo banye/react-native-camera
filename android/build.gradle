@@ -1,7 +1,6 @@
 buildscript {
   repositories {
     jcenter()
-    google()
     maven {
       url 'https://maven.google.com'
     }
@@ -53,11 +52,11 @@ dependencies {
   def googlePlayServicesVersion = rootProject.hasProperty('googlePlayServicesVersion')  ? rootProject.googlePlayServicesVersion : DEFAULT_GOOGLE_PLAY_SERVICES_VERSION
   def supportLibVersion = rootProject.hasProperty('supportLibVersion')  ? rootProject.supportLibVersion : DEFAULT_SUPPORT_LIBRARY_VERSION
 
-  compileOnly 'com.facebook.react:react-native:+'
-  implementation "com.google.zxing:core:3.2.1"
-  implementation "com.drewnoakes:metadata-extractor:2.9.1"
-  implementation "com.google.android.gms:play-services-vision:$googlePlayServicesVersion"
-  implementation "com.android.support:exifinterface:$supportLibVersion"
-  implementation "com.android.support:support-annotations:$supportLibVersion"
-  implementation "com.android.support:support-v4:$supportLibVersion"
+  compile 'com.facebook.react:react-native:+'
+  compile "com.google.zxing:core:3.2.1"
+  compile "com.drewnoakes:metadata-extractor:2.9.1"
+  compile "com.google.android.gms:play-services-vision:$googlePlayServicesVersion"
+  compile "com.android.support:exifinterface:$supportLibVersion"
+  compile "com.android.support:support-annotations:$supportLibVersion"
+  compile "com.android.support:support-v4:$supportLibVersion"
 }

@@ -34,7 +34,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class RNCameraView extends CameraView implements LifecycleEventListener, BarCodeScannerAsyncTaskDelegate, FaceDetectorAsyncTaskDelegate,
-    BarcodeDetectorAsyncTaskDelegate, TextRecognizerAsyncTaskDelegate {
+    BarcodeDetectorAsyncTaskDelegate, TextRecognizerAsyncTaskDelegate, PictureSavedDelegate {
   private ThemedReactContext mThemedReactContext;
   private Queue<Promise> mPictureTakenPromises = new ConcurrentLinkedQueue<>();
   private Map<Promise, ReadableMap> mPictureTakenOptions = new ConcurrentHashMap<>();
@@ -91,8 +91,11 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
       public void onPictureTaken(CameraView cameraView, final byte[] data) {
         Promise promise = mPictureTakenPromises.poll();
         ReadableMap options = mPictureTakenOptions.remove(promise);
+        if (options.hasKey("fastMode") && options.getBoolean("fastMode")) {
+            promise.resolve(null);
+        }
         final File cacheDirectory = mPictureTakenDirectories.remove(promise);
-        new ResolveTakenPictureAsyncTask(data, promise, options, cacheDirectory).execute();
+        new ResolveTakenPictureAsyncTask(data, promise, options, cacheDirectory, RNCameraView.this).execute();
       }
 
       @Override
@@ -113,7 +116,11 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
         byte[] rotated = new byte[imageData.length];
         for (int y = 0; y < width; y++) {
           for (int x = 0; x < height; x++) {
-            rotated[x * width + width - y - 1] = imageData[x + y * height];
+            int sourceIx = x + y * height;
+            int destIx = x * width + width - y - 1;
+            if (sourceIx >= 0 && sourceIx < imageData.length && destIx >= 0 && destIx < imageData.length) {
+              rotated[destIx] = imageData[sourceIx];
+            }
           }
         }
         return rotated;
@@ -125,30 +132,38 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
         int correctWidth = width;
         int correctHeight = height;
         byte[] correctData = data;
-        if (correctRotation == 90) {
-          correctWidth = height;
-          correctHeight = width;
-          correctData = rotateImage(data, correctHeight, correctWidth);
+        boolean willCallBarCodeTask = mShouldScanBarCodes && !barCodeScannerTaskLock && cameraView instanceof BarCodeScannerAsyncTaskDelegate;
+        boolean willCallFaceTask = mShouldDetectFaces && !faceDetectorTaskLock && cameraView instanceof FaceDetectorAsyncTaskDelegate;
+        boolean willCallGoogleBarcodeTask = mShouldGoogleDetectBarcodes && !googleBarcodeDetectorTaskLock && cameraView instanceof BarcodeDetectorAsyncTaskDelegate;
+        boolean willCallTextTask = mShouldRecognizeText && !textRecognizerTaskLock && cameraView instanceof TextRecognizerAsyncTaskDelegate;
+        if (!willCallBarCodeTask && !willCallFaceTask && !willCallGoogleBarcodeTask && !willCallTextTask) {
+          return;
         }
-        if (mShouldScanBarCodes && !barCodeScannerTaskLock && cameraView instanceof BarCodeScannerAsyncTaskDelegate) {
+          
+        if (correctRotation == 90) {
+            correctWidth = height;
+            correctHeight = width;
+            correctData = rotateImage(data, correctHeight, correctWidth);
+        }
+        if (willCallBarCodeTask) {
           barCodeScannerTaskLock = true;
           BarCodeScannerAsyncTaskDelegate delegate = (BarCodeScannerAsyncTaskDelegate) cameraView;
           new BarCodeScannerAsyncTask(delegate, mMultiFormatReader, correctData, correctWidth, correctHeight).execute();
         }
 
-        if (mShouldDetectFaces && !faceDetectorTaskLock && cameraView instanceof FaceDetectorAsyncTaskDelegate) {
+        if (willCallFaceTask) {
           faceDetectorTaskLock = true;
           FaceDetectorAsyncTaskDelegate delegate = (FaceDetectorAsyncTaskDelegate) cameraView;
           new FaceDetectorAsyncTask(delegate, mFaceDetector, correctData, correctWidth, correctHeight, correctRotation).execute();
         }
 
-        if (mShouldGoogleDetectBarcodes && !googleBarcodeDetectorTaskLock && cameraView instanceof BarcodeDetectorAsyncTaskDelegate) {
+        if (willCallGoogleBarcodeTask) {
           googleBarcodeDetectorTaskLock = true;
           BarcodeDetectorAsyncTaskDelegate delegate = (BarcodeDetectorAsyncTaskDelegate) cameraView;
           new BarcodeDetectorAsyncTask(delegate, mGoogleBarcodeDetector, correctData, correctWidth, correctHeight, correctRotation).execute();
         }
 
-        if (mShouldRecognizeText && !textRecognizerTaskLock && cameraView instanceof TextRecognizerAsyncTaskDelegate) {
+        if (willCallTextTask) {
           textRecognizerTaskLock = true;
           TextRecognizerAsyncTaskDelegate delegate = (TextRecognizerAsyncTaskDelegate) cameraView;
           new TextRecognizerAsyncTask(delegate, mTextRecognizer, correctData, correctWidth, correctHeight, correctRotation).execute();
@@ -224,12 +239,24 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
       MediaActionSound sound = new MediaActionSound();
       sound.play(MediaActionSound.SHUTTER_CLICK);
     }
-    super.takePicture();
+    try {
+      super.takePicture();
+    } catch (Exception e) {
+      mPictureTakenPromises.remove(promise);
+      mPictureTakenOptions.remove(promise);
+      mPictureTakenDirectories.remove(promise);
+      throw e;
+    }
+  }
+        
+  @Override
+  public void onPictureSaved(WritableMap response) {
+    RNCameraViewHelper.emitPictureSavedEvent(this, response);
   }
 
   public void record(ReadableMap options, final Promise promise, File cacheDirectory) {
     try {
-      String path = RNFileUtils.getOutputFilePath(cacheDirectory, ".mp4");
+      String path = options.hasKey("path") ? options.getString("path") : RNFileUtils.getOutputFilePath(cacheDirectory, ".mp4");
       int maxDuration = options.hasKey("maxDuration") ? options.getInt("maxDuration") : -1;
       int maxFileSize = options.hasKey("maxFileSize") ? options.getInt("maxFileSize") : -1;
 
@@ -443,9 +470,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
       if ((mIsPaused && !isCameraOpened()) || mIsNew) {
         mIsPaused = false;
         mIsNew = false;
-        if (!Build.FINGERPRINT.contains("generic")) {
-          start();
-        }
+        start();
       }
     } else {
       RNCameraViewHelper.emitMountErrorEvent(this, "Camera permissions not granted - component could not be rendered.");

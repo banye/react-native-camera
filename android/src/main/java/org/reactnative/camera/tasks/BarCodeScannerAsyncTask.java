@@ -75,33 +75,15 @@ public class BarCodeScannerAsyncTask extends android.os.AsyncTask<Void, Void, Re
   }
 
   private BinaryBitmap generateBitmapFromImageData(byte[] imageData, int width, int height) {
-//    PlanarYUVLuminanceSource source = new PlanarYUVLuminanceSource(
-//        imageData, // byte[] yuvData
-//        width, // int dataWidth
-//        height, // int dataHeight
-//        0, // int left
-//        0, // int top
-//        width, // int width
-//        height, // int height
-//        false // boolean reverseHorizontal
-//    );
-//    return new BinaryBitmap(new HybridBinarizer(source));
     int scannerLeft = 0;
     int scannerTop = 0;
     int scannerWidth = width;
     int scannerHeight = height;
     if (rnCameraView != null){
-      Display display = ViewCompat.getDisplay(rnCameraView);
-      int wRatio = width/screenHight;
-      int hRatio = height/screenWith;
-      if (display.getRotation() == Surface.ROTATION_0 || display.getRotation() == Surface.ROTATION_180 ){
-        scannerHeight = rnCameraView.getBarCodeScannerWidth() >0 ? rnCameraView.getBarCodeScannerWidth() * hRatio : height;
-        scannerWidth = rnCameraView.getBarCodeScannerHeight() >0 ? rnCameraView.getBarCodeScannerHeight() * wRatio : width;
-      } else {
-        scannerWidth = rnCameraView.getBarCodeScannerWidth() >0 ? rnCameraView.getBarCodeScannerWidth() * wRatio : width;
-        scannerHeight = rnCameraView.getBarCodeScannerHeight() >0 ? rnCameraView.getBarCodeScannerHeight() *  hRatio : height;
-      }
-      // 暂时只实现扫描框剧中的
+      int wRatio = width/screenWith;
+      scannerWidth = rnCameraView.getBarCodeScannerWidth() >0 ? rnCameraView.getBarCodeScannerWidth() * wRatio : width;
+      scannerHeight = rnCameraView.getBarCodeScannerHeight() >0 ? rnCameraView.getBarCodeScannerHeight() *  hRatio : height;
+      // 暂时只实现扫描框 居中的
       scannerLeft = (width - scannerWidth)/2 - 1;
       scannerTop = (height - scannerHeight)/2 - 1;
     }

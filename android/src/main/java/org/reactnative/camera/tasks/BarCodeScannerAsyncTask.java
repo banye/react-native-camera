@@ -81,6 +81,7 @@ public class BarCodeScannerAsyncTask extends android.os.AsyncTask<Void, Void, Re
     int scannerHeight = height;
     if (rnCameraView != null){
       int wRatio = width/screenWith;
+      int hRatio = height/screenHight;
       scannerWidth = rnCameraView.getBarCodeScannerWidth() >0 ? rnCameraView.getBarCodeScannerWidth() * wRatio : width;
       scannerHeight = rnCameraView.getBarCodeScannerHeight() >0 ? rnCameraView.getBarCodeScannerHeight() *  hRatio : height;
       // 暂时只实现扫描框 居中的

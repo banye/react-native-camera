@@ -204,6 +204,7 @@ interface RecordOptions {
     maxDuration?: number;
     maxFileSize?: number;
     mute?: boolean;
+    mirrorVideo?: boolean;
 
     /** iOS only */
     codec?: keyof VideoCodec | VideoCodec[keyof VideoCodec];

@@ -103,6 +103,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
           new ResolveTakenPictureAsyncTask(data, promise, options, cacheDirectory, RNCameraView.this)
                   .execute();
         }
+        RNCameraViewHelper.emitPictureTakenEvent(cameraView);
       }
 
       @Override
@@ -237,7 +238,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
       throw e;
     }
   }
-        
+
   @Override
   public void onPictureSaved(WritableMap response) {
     RNCameraViewHelper.emitPictureSavedEvent(this, response);
@@ -297,13 +298,13 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
     setScanning(mShouldDetectFaces || mShouldGoogleDetectBarcodes || mShouldScanBarCodes || mShouldRecognizeText);
   }
 
-  public void onBarCodeRead(Result barCode) {
+  public void onBarCodeRead(Result barCode, int width, int height) {
     String barCodeType = barCode.getBarcodeFormat().toString();
     if (!mShouldScanBarCodes || !mBarCodeTypes.contains(barCodeType)) {
       return;
     }
 
-    RNCameraViewHelper.emitBarCodeReadEvent(this, barCode);
+    RNCameraViewHelper.emitBarCodeReadEvent(this, barCode,  width,  height);
   }
 
   public void onBarCodeScanningTaskCompleted() {
